@@ -1,56 +1,111 @@
 package search;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 import org.unix4j.Unix4j;
 import org.unix4j.line.Line;
+import org.unix4j.unix.Grep;
+import org.unix4j.unix.grep.GrepOptionSet_Fcilnvx;
 
-public class UsingGrep {
-	static int folderCount = 0;
-	static int fileCount = 0;
+public class GrepSearch {
 
-	public static void createIndexFromDirectory(final File inputfolder, String outputDirectory) throws IOException {
+	public static void main(String[] args) {
+		String yourCVSdirectory = "E:\\Lucene\\sample_directory_for_testing";
+		String outputDirectory = "E:\\Lucene";
+		String searchSrting = "WiLL";
+		// select from c,count , f, v, i , l, n etc
+		// if not , then put null
+		GrepOptionSet_Fcilnvx specialGrepAddOn = Grep.Options.ignoreCase;
 
-		if (null != inputfolder && null != outputDirectory && inputfolder.listFiles() != null
-				&& inputfolder.listFiles().length > 0) {
+		GrepSearchUtility.entry(yourCVSdirectory, outputDirectory, searchSrting, specialGrepAddOn);
+	}
+
+}
+
+class GrepSearchUtility {
+	private static int FOLDER_COUNT = 0;
+	private static int FILE_COUNT = 0;
+
+	public static void entry(String yourCVSdirectory, String outputDirectory, String searchSrting,
+			GrepOptionSet_Fcilnvx specialGrepAddOn) {
+		try {
+			long start = Calendar.getInstance().getTimeInMillis();
+			String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()).replaceAll("\\.", "-");
+			final File inputfolder = new File(yourCVSdirectory);
+			System.out.println("Started");
+			String csvFile = outputDirectory + "\\search_result_" + timeStamp + ".csv";
+			FileWriter csvWriter = new FileWriter(csvFile);
+			csvWriter.append("Search result for '" + searchSrting + "'");
+			csvWriter.append("\n");
+			csvWriter.append("Path");
+			csvWriter.append(",");
+			csvWriter.append("Hits");
+			csvWriter.append("\n");
+
+			scanDirectory(inputfolder, searchSrting, csvWriter, specialGrepAddOn);
+			csvWriter.close();
+
+			long end = Calendar.getInstance().getTimeInMillis();
+			System.out.println("Folders :" + FOLDER_COUNT + " \nFiles : " + FILE_COUNT);
+			System.out.println("Time : " + ((double) (end - start)) / 1000 + " seconds");
+			System.out.println("Done");
+		} catch (IOException io) {
+			System.out.println(io.getMessage());
+		}
+	}
+
+	private static void scanDirectory(final File inputfolder, String searchSrting, FileWriter csvWriter,
+			GrepOptionSet_Fcilnvx specialGrepAddOn) throws IOException {
+
+		if (null != inputfolder && inputfolder.listFiles() != null && inputfolder.listFiles().length > 0) {
 			for (final File fileEntry : inputfolder.listFiles()) {
 				if (fileEntry.isDirectory()) {
-					createIndexFromDirectory(fileEntry, outputDirectory);
-					folderCount++;
+					scanDirectory(fileEntry, searchSrting, csvWriter, specialGrepAddOn);
+					FOLDER_COUNT++;
+					System.out.print(".");
 				} else {
-					String inputFilePath = fileEntry.getCanonicalFile().toString();
-					if (!fileEntry.isHidden() && (inputFilePath.endsWith(".java") || inputFilePath.endsWith(".xml")
-							|| inputFilePath.endsWith(".wsdl") || inputFilePath.endsWith(".xsd")
-							|| inputFilePath.endsWith(".properties"))) {
-						fileCount++;
-						File file = new File(inputFilePath);
-						List<Line> lines = Unix4j.grep("public", file).toLineList();
-						// System.out.println(inputFilePath + " count is " + lines.size());
-						if (lines.size() > 0) {
-							System.out.println("FOUND : " + inputFilePath + " count is " + lines.size());
-						}
+					FILE_COUNT++;
 
-					}
+					grepSearch(searchSrting, csvWriter, fileEntry, specialGrepAddOn);
 				}
 			}
 		}
 
 	}
 
-	public static void main(String[] args) throws IOException {
-		long start = Calendar.getInstance().getTimeInMillis();
-		final File inputfolder = new File("E:\\");
-		// final File inputfolder = new
-		// File("E:\\Lucene\\sample_directory_for_testing\\");
-		String outputDirectory = "E:\\Lucene\\temp_test_index\\";
+	private static void grepSearch(String searchSrting, FileWriter csvWriter, final File fileEntry,
+			GrepOptionSet_Fcilnvx specialGrepAddOn) throws IOException {
+		String inputFilePath = fileEntry.getCanonicalFile().toString();
+		if (!fileEntry.isHidden() && (inputFilePath.endsWith(".java") || inputFilePath.endsWith(".xml")
+				|| inputFilePath.endsWith(".wsdl") || inputFilePath.endsWith(".xsd")
+				|| inputFilePath.endsWith(".properties") || inputFilePath.endsWith(".txt"))) {
+			File file = new File(inputFilePath);
+			List<Line> lines;
+			if (specialGrepAddOn != null) {
+				lines = Unix4j.grep(specialGrepAddOn, searchSrting, file).toLineList();
+			}
+			else{
+				lines = Unix4j.grep(searchSrting, file).toLineList();
+			}// System.out.println(inputFilePath + " count is " + lines.size());
+			if (lines.size() > 0) {
+				// System.out.println("Count is " + lines.size()+" : FOUND in : " +
+				writeToCSV(inputFilePath, csvWriter, lines.size());
+			}
 
-		createIndexFromDirectory(inputfolder, outputDirectory);
-		long end = Calendar.getInstance().getTimeInMillis();
-		System.out.println("Folders :" + folderCount + " \nFiles : " + fileCount);
-		System.out.println("Time : " + (end - start) + " ms");
+		}
 	}
 
+	private static void writeToCSV(String inputFilePath, FileWriter csvWriter, int count) throws IOException {
+		csvWriter.append(String.join(",", inputFilePath));
+		csvWriter.append(",");
+		csvWriter.append(String.valueOf(count));
+		csvWriter.append("\n");
+		csvWriter.flush();
+	}
 }
