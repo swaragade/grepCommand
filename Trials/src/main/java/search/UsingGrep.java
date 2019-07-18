@@ -54,6 +54,15 @@ class GrepSearchUtility {
 			long end = Calendar.getInstance().getTimeInMillis();
 			System.out.println("Folders :" + FOLDER_COUNT + " \nFiles : " + FILE_COUNT);
 			System.out.println("Time : " + ((double) (end - start)) / 1000 + " seconds");
+
+			System.out.println("Attempting to open the result file..");
+			String[] commands = { "cmd", "/c", csvFile };
+			try {
+				Runtime.getRuntime().exec(commands);
+			} catch (Exception ex) {
+				System.out.println("Failed to open the file, Please check : " + csvFile);
+			}
+
 			System.out.println("Done");
 		} catch (IOException io) {
 			System.out.println(io.getMessage());
@@ -61,7 +70,7 @@ class GrepSearchUtility {
 	}
 
 	private static void scanDirectory(final File inputfolder, String searchSrting, FileWriter csvWriter,
-			GrepOptionSet_Fcilnvx specialGrepAddOn) throws IOException {
+			GrepOptionSet_Fcilnvx specialGrepAddOn) {
 
 		if (null != inputfolder && inputfolder.listFiles() != null && inputfolder.listFiles().length > 0) {
 			for (final File fileEntry : inputfolder.listFiles()) {
@@ -80,25 +89,31 @@ class GrepSearchUtility {
 	}
 
 	private static void grepSearch(String searchSrting, FileWriter csvWriter, final File fileEntry,
-			GrepOptionSet_Fcilnvx specialGrepAddOn) throws IOException {
-		String inputFilePath = fileEntry.getCanonicalFile().toString();
-		if (!fileEntry.isHidden() && (inputFilePath.endsWith(".java") || inputFilePath.endsWith(".xml")
-				|| inputFilePath.endsWith(".wsdl") || inputFilePath.endsWith(".xsd")
-				|| inputFilePath.endsWith(".properties") || inputFilePath.endsWith(".txt"))) {
-			File file = new File(inputFilePath);
-			List<Line> lines;
-			if (specialGrepAddOn != null) {
-				lines = Unix4j.grep(specialGrepAddOn, searchSrting, file).toLineList();
-			}
-			else{
-				lines = Unix4j.grep(searchSrting, file).toLineList();
-			}// System.out.println(inputFilePath + " count is " + lines.size());
-			if (lines.size() > 0) {
-				// System.out.println("Count is " + lines.size()+" : FOUND in : " +
-				writeToCSV(inputFilePath, csvWriter, lines.size());
-			}
+			GrepOptionSet_Fcilnvx specialGrepAddOn) {
+		String inputFilePath;
+		try {
+			inputFilePath = fileEntry.getCanonicalFile().toString();
+			if (!fileEntry.isHidden() && (inputFilePath.endsWith(".java") || inputFilePath.endsWith(".xml")
+					|| inputFilePath.endsWith(".wsdl") || inputFilePath.endsWith(".xsd")
+					|| inputFilePath.endsWith(".properties") || inputFilePath.endsWith(".txt"))) {
+				File file = new File(inputFilePath);
+				List<Line> lines;
+				if (specialGrepAddOn != null) {
+					lines = Unix4j.grep(specialGrepAddOn, searchSrting, file).toLineList();
+				} else {
+					lines = Unix4j.grep(searchSrting, file).toLineList();
+				} // System.out.println(inputFilePath + " count is " + lines.size());
+				if (lines.size() > 0) {
+					// System.out.println("Count is " + lines.size()+" : FOUND in : " +
+					writeToCSV(inputFilePath, csvWriter, lines.size());
+				}
 
+			}
+		} catch (IOException e) {
+			System.out.println("Grep command failed to execute");
+			e.printStackTrace();
 		}
+		
 	}
 
 	private static void writeToCSV(String inputFilePath, FileWriter csvWriter, int count) throws IOException {
